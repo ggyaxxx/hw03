@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/hw02.dir/link.d CMakeFiles/hw02.dir/generate_files.c.o -o hw02  -Wl,-rpath,/usr/local/lib64 /usr/local/lib64/libssl.so /usr/local/lib64/libcrypto.so
