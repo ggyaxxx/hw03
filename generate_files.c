@@ -94,44 +94,6 @@ int decrypt_file(const char *input_filename, const char *output_filename,
     fclose(in);
     fclose(out);
 
-
-    clock_t start, end;
-    double cpu_time_used;
-
-    const EVP_CIPHER *algorithms[] = {
-        EVP_aes_128_cbc(),
-        EVP_camellia_128_cbc(),
-        EVP_sm4_cbc()
-    };
-
-    const char *names[] = {"AES-128-CBC", "Camellia-128-CBC", "SM4-CBC"};
-
-    const char *inputs[] = {"tiny.txt", "medium.txt", "large.bin"};
-    const char *sizes[] = {"16B", "20KB", "3MB"};
-
-    for (int a = 0; a < 3; a++) {
-        for (int f = 0; f < 3; f++) {
-            char enc_file[64], dec_file[64];
-            sprintf(enc_file, "%s_%s.enc", names[a], inputs[f]);
-            sprintf(dec_file, "%s_%s.dec", names[a], inputs[f]);
-
-            printf("\n🔹 Testing %s on %s...\n", names[a], sizes[f]);
-
-            start = clock();
-            encrypt_file(inputs[f], enc_file, algorithms[a], key, iv);
-            end = clock();
-            cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-            printf("   Encryption time: %.6f seconds\n", cpu_time_used);
-
-            start = clock();
-            decrypt_file(enc_file, dec_file, algorithms[a], key, iv);
-            end = clock();
-            cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-            printf("   Decryption time: %.6f seconds\n", cpu_time_used);
-        }
-    }
-
-
     return 1;
 }
 
@@ -187,6 +149,41 @@ int main() {
     generate_random_file("medium.txt", 20000);
     generate_random_file("large.bin", 3 * 1024 * 1024);
 
+    clock_t start, end;
+    double cpu_time_used;
+
+    const EVP_CIPHER *algorithms[] = {
+        EVP_aes_128_cbc(),
+        EVP_camellia_128_cbc(),
+        EVP_sm4_cbc()
+    };
+
+    const char *names[] = {"AES-128-CBC", "Camellia-128-CBC", "SM4-CBC"};
+
+    const char *inputs[] = {"tiny.txt", "medium.txt", "large.bin"};
+    const char *sizes[] = {"16B", "20KB", "3MB"};
+
+    for (int a = 0; a < 3; a++) {
+        for (int f = 0; f < 3; f++) {
+            char enc_file[64], dec_file[64];
+            sprintf(enc_file, "%s_%s.enc", names[a], inputs[f]);
+            sprintf(dec_file, "%s_%s.dec", names[a], inputs[f]);
+
+            printf("\n🔹 Testing %s on %s...\n", names[a], sizes[f]);
+
+            start = clock();
+            encrypt_file(inputs[f], enc_file, algorithms[a], key, iv);
+            end = clock();
+            cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+            printf("   Encryption time: %.6f seconds\n", cpu_time_used);
+
+            start = clock();
+            decrypt_file(enc_file, dec_file, algorithms[a], key, iv);
+            end = clock();
+            cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
+            printf("   Decryption time: %.6f seconds\n", cpu_time_used);
+        }
+    }
 
 
 
