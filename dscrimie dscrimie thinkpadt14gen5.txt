@@ -1,0 +1,4 @@
+dscrimie@dscrimie-thinkpadt14gen5:~/Documents/University/Cybersecurity/HOMEWORK/hw02/openssl-3.3.1$ export PATH="/usr/local/bin:$PATH"
+export LD_LIBRARY_PATH="/usr/local/lib64:$LD_LIBRARY_PATH"
+bash
+
