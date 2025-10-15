@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <openssl/evp.h>
 #include <time.h>
-
+#include <string.h>
 int encrypt_file(const char *input_filename, const char *output_filename,
                  const EVP_CIPHER *cipher, unsigned char *key, unsigned char *iv) {
     FILE *in = fopen(input_filename, "rb");
@@ -129,6 +129,51 @@ void generate_random_file(const char *filename, size_t size) {
     printf("✅ File '%s' generato con %zu byte casuali.\n", filename, size);
 }
 
+int compute_sha256(const char *filename, unsigned char *digest, unsigned int *digest_len) {
+    FILE *file = fopen(filename, "rb");
+    if (!file) {
+        perror("Errore apertura file per hash");
+        return 0;
+    }
+
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+    if (!mdctx) {
+        fprintf(stderr, "Errore creazione contesto hash.\n");
+        fclose(file);
+        return 0;
+    }
+
+    if (EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) != 1) {
+        fprintf(stderr, "Errore inizializzazione SHA-256.\n");
+        EVP_MD_CTX_free(mdctx);
+        fclose(file);
+        return 0;
+    }
+
+    unsigned char buffer[4096];
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        if (EVP_DigestUpdate(mdctx, buffer, bytes_read) != 1) {
+            fprintf(stderr, "Errore aggiornamento SHA-256.\n");
+            EVP_MD_CTX_free(mdctx);
+            fclose(file);
+            return 0;
+        }
+    }
+
+    if (EVP_DigestFinal_ex(mdctx, digest, digest_len) != 1) {
+        fprintf(stderr, "Errore finale SHA-256.\n");
+        EVP_MD_CTX_free(mdctx);
+        fclose(file);
+        return 0;
+    }
+
+    EVP_MD_CTX_free(mdctx);
+    fclose(file);
+    return 1;
+}
+
+
 int main() {
     // inizializza l'algoritmo di generazione casuale di OpenSSL
     OpenSSL_add_all_algorithms();
@@ -182,8 +227,24 @@ int main() {
             end = clock();
             cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
             printf("   Decryption time: %.6f seconds\n", cpu_time_used);
+
+            // 🔽 Place hash verification here
+            unsigned char hash_orig[EVP_MAX_MD_SIZE], hash_dec[EVP_MAX_MD_SIZE];
+            unsigned int len_orig, len_dec;
+
+            if (!compute_sha256(inputs[f], hash_orig, &len_orig) ||
+                !compute_sha256(dec_file, hash_dec, &len_dec)) {
+                fprintf(stderr, "Errore nel calcolo degli hash.\n");
+                continue;
+                }
+
+            if (len_orig == len_dec && memcmp(hash_orig, hash_dec, len_orig) == 0)
+                printf("   ✅ Integrity OK (SHA-256 match)\n");
+            else
+                printf("   ❌ Integrity FAIL (files differ)\n");
         }
     }
+
 
 
 
