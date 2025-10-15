@@ -1,0 +1,7 @@
+libdir=/home/dscrimie/Documents/University/Cybersecurity/HOMEWORK/hw02/openssl-3.3.1
+includedir=/home/dscrimie/Documents/University/Cybersecurity/HOMEWORK/hw02/openssl-3.3.1/include
+
+Name: OpenSSL
+Description: Secure Sockets Layer and cryptography libraries and tools
+Version: 3.3.1
+Requires: libssl libcrypto
