@@ -1,0 +1,259 @@
+Perfetto. Facciamo chiarezza *una volta per tutte*: ti spiego **cosa devi fare** in questa esercitazione e **come farlo concretamente su Fedora**, passo dopo passo — come se la svolgessimo insieme.
+L’obiettivo è portarti dal foglio bianco al report finale.
+
+---
+
+## 🎯 OBIETTIVO DELL’ESERCITAZIONE
+
+Mettere in pratica la **crittografia simmetrica a blocchi in modalità CBC**, usando **le API C di OpenSSL**.
+Dovrai:
+
+1. Scrivere un programma in C che cifra e decifra file con tre algoritmi:
+
+   * AES-128-CBC
+   * Camellia-128-CBC
+   * SM4-CBC
+2. Misurare i tempi di cifratura e decifratura su file di diverse dimensioni.
+3. Confrontare le prestazioni e discutere i risultati nel tuo report.
+
+---
+
+## 🧱 STRUTTURA DEL PROGETTO
+
+Nel tuo ambiente Fedora, crea una cartella:
+
+```bash
+mkdir ~/hw02 && cd ~/hw02
+```
+
+Dentro metterai:
+
+```
+hw02/
+ ├── hw02.c          # il tuo programma C
+ ├── Makefile        # per compilare facilmente
+ ├── tiny.txt        # file da 16 byte
+ ├── medium.txt      # file ~20 KB
+ ├── large.bin       # file ~2-3 MB
+ ├── results.txt     # dove annoterai tempi e output
+ └── hw02_report.pdf # il report finale
+```
+
+---
+
+## 🧰 STEP 1 — Prepara l’ambiente
+
+Installa tutto ciò che serve:
+
+```bash
+sudo dnf install gcc make openssl-devel
+```
+
+Questo installa il compilatore e le librerie OpenSSL con le API C (`libcrypto`).
+
+---
+
+## 🧮 STEP 2 — Crea i file di test
+
+Genera tre file di dimensioni crescenti:
+
+```bash
+head -c 16 /dev/urandom > tiny.txt
+base64 /dev/urandom | head -c 20000 > medium.txt
+dd if=/dev/urandom of=large.bin bs=1M count=3
+```
+
+Questi serviranno per confrontare i tempi di cifratura/decifratura.
+
+---
+
+## 💻 STEP 3 — Scrivi il programma `hw02.c`
+
+Crea e apri il file:
+
+```bash
+nano hw02.c
+```
+
+Incolla questo **scheletro funzionante** (base per AES; lo estenderai dopo a Camellia e SM4):
+
+```c
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <time.h>
+
+#define BUF_SIZE 1024
+
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
+            unsigned char *iv, const EVP_CIPHER *cipher, unsigned char *ciphertext) {
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    int len, ciphertext_len;
+
+    EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv);
+    EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len);
+    ciphertext_len = len;
+    EVP_EncryptFinal_ex(ctx, ciphertext + len, &len);
+    ciphertext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return ciphertext_len;
+}
+
+int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+            unsigned char *iv, const EVP_CIPHER *cipher, unsigned char *plaintext) {
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    int len, plaintext_len;
+
+    EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv);
+    EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len);
+    plaintext_len = len;
+    EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+    plaintext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+    return plaintext_len;
+}
+
+double measure_time(const EVP_CIPHER *cipher_type, const char *filename) {
+    FILE *f = fopen(filename, "rb");
+    fseek(f, 0, SEEK_END);
+    long filesize = ftell(f);
+    rewind(f);
+
+    unsigned char *plaintext = malloc(filesize);
+    fread(plaintext, 1, filesize, f);
+    fclose(f);
+
+    unsigned char *ciphertext = malloc(filesize + 16);
+    unsigned char *decrypted = malloc(filesize + 16);
+
+    unsigned char key[16], iv[16];
+    RAND_bytes(key, sizeof(key));
+    RAND_bytes(iv, sizeof(iv));
+
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    int cipher_len = encrypt(plaintext, filesize, key, iv, cipher_type, ciphertext);
+    int plain_len = decrypt(ciphertext, cipher_len, key, iv, cipher_type, decrypted);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    double ms = (end.tv_sec - start.tv_sec) * 1e3 + (end.tv_nsec - start.tv_nsec) / 1e6;
+    printf("%s on %s: %.3f ms\n", EVP_CIPHER_name(cipher_type), filename, ms);
+
+    // opzionale: verifica correttezza
+    if (memcmp(plaintext, decrypted, plain_len) != 0)
+        printf("❌ Error: decrypted text does not match original!\n");
+
+    free(plaintext); free(ciphertext); free(decrypted);
+    return ms;
+}
+
+int main() {
+    OpenSSL_add_all_algorithms();
+
+    measure_time(EVP_aes_128_cbc(), "tiny.txt");
+    measure_time(EVP_aes_128_cbc(), "medium.txt");
+    measure_time(EVP_aes_128_cbc(), "large.bin");
+
+    measure_time(EVP_camellia_128_cbc(), "tiny.txt");
+    measure_time(EVP_camellia_128_cbc(), "medium.txt");
+    measure_time(EVP_camellia_128_cbc(), "large.bin");
+
+    measure_time(EVP_sm4_cbc(), "tiny.txt");
+    measure_time(EVP_sm4_cbc(), "medium.txt");
+    measure_time(EVP_sm4_cbc(), "large.bin");
+
+    EVP_cleanup();
+    return 0;
+}
+```
+
+---
+
+## ⚙️ STEP 4 — Compila e lancia
+
+Compila con:
+
+```bash
+gcc hw02.c -o hw02 -lcrypto
+```
+
+Poi esegui:
+
+```bash
+./hw02
+```
+
+Vedrai un output simile a:
+
+```
+AES-128-CBC on tiny.txt: 0.201 ms
+AES-128-CBC on medium.txt: 1.843 ms
+AES-128-CBC on large.bin: 45.612 ms
+Camellia-128-CBC on tiny.txt: 0.232 ms
+...
+```
+
+---
+
+## 📊 STEP 5 — Raccogli e confronta i dati
+
+Annota i risultati in una tabella nel file `results.txt`:
+
+| Algoritmo        | tiny.txt (16B) | medium.txt (20KB) | large.bin (3MB) |
+| ---------------- | -------------- | ----------------- | --------------- |
+| AES-128-CBC      | … ms           | … ms              | … ms            |
+| Camellia-128-CBC | …              | …                 | …               |
+| SM4-CBC          | …              | …                 | …               |
+
+---
+
+## 📈 STEP 6 — Analisi finale nel report
+
+Nel tuo `hw02_report.pdf` scrivi:
+
+**1. Introduzione**
+
+* Cosa sono i cifrari a blocchi e la modalità CBC
+* Breve spiegazione del padding e dell’IV
+
+**2. Metodologia**
+
+* Uso delle API OpenSSL (funzioni `EVP_EncryptInit_ex`, ecc.)
+* Parametri e configurazione
+
+**3. Risultati**
+
+* Tabella con tempi e file size
+* Grafico tempi vs dimensione file
+
+**4. Discussione**
+
+* AES risulta solitamente il più efficiente
+* Camellia e SM4 sono più lenti ma con caratteristiche diverse
+* Piccole differenze per file corti dovute al tempo di inizializzazione
+
+**5. Conclusione**
+
+* CBC mantiene sicurezza ma introduce overhead rispetto a ECB
+* OpenSSL fornisce API uniformi e veloci per confronti crittografici
+
+---
+
+## ✅ STEP 7 — Consegna
+
+Consegna un `.zip` contenente:
+
+```
+hw02.c
+results.txt
+hw02_report.pdf
+```
+
+---
+
+Vuoi che ti aggiunga anche il **Makefile** per compilare e pulire tutto con un solo comando (`make` e `make clean`)?
+Così il progetto è completo e pronto per l’invio.
