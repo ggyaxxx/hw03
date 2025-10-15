@@ -19,6 +19,6 @@ target_link_libraries(hw02 PRIVATE ${OPENSSL_LIBRARIES})
 
 # Ensure runtime finds your /usr/local libs
 set_target_properties(hw02 PROPERTIES
-        BUILD_RPATH "/usr/local/lib64"
+        BUILD_RPATH "/usr/local/lib64" # su fedora non usare quella di sistema ma quella scaricata
         INSTALL_RPATH "/usr/local/lib64"
 )
