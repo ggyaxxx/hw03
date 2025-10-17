@@ -115,18 +115,37 @@ void generate_random_file(const char *filename, size_t size) {
         exit(1);
     }
 
-    if (RAND_bytes(buffer, size) != 1) {
-        fprintf(stderr, "Errore nella generazione casuale con OpenSSL.\n");
-        fclose(f);
-        free(buffer);
-        exit(1);
+    // Check if the file should be text or binary
+    const char *ext = strrchr(filename, '.');
+    int is_text = (ext && strcmp(ext, ".txt") == 0);
+
+    if (is_text) {
+        // Generate printable ASCII text (A–Z, a–z, 0–9, space)
+        const char charset[] =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                "abcdefghijklmnopqrstuvwxyz"
+                "0123456789 ";
+        size_t charset_size = sizeof(charset) - 1;
+
+        for (size_t i = 0; i < size; i++) {
+            buffer[i] = charset[rand() % charset_size];
+        }
+    } else {
+        // Generate binary random bytes
+        if (RAND_bytes(buffer, size) != 1) {
+            fprintf(stderr, "Errore nella generazione casuale con OpenSSL.\n");
+            fclose(f);
+            free(buffer);
+            exit(1);
+        }
     }
 
     fwrite(buffer, 1, size, f);
     fclose(f);
     free(buffer);
 
-    printf("✅ File '%s' generato con %zu byte casuali.\n", filename, size);
+    printf("✅ File '%s' generato con %zu byte %s.\n",
+           filename, size, is_text ? "di testo casuale" : "casuali binari");
 }
 
 int compute_sha256(const char *filename, unsigned char *digest, unsigned int *digest_len) {
