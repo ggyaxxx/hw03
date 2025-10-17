@@ -10,18 +10,18 @@
 #include <string.h>
 int encrypt_file(const char *input_filename, const char *output_filename,
                  const EVP_CIPHER *cipher, unsigned char *key, unsigned char *iv) {
-    FILE *in = fopen(input_filename, "rb");
-    FILE *out = fopen(output_filename, "wb");
-    if (!in || !out) {
+    FILE *input_file = fopen(input_filename, "rb");
+    FILE *outpu_file = fopen(output_filename, "wb");
+    if (!input_file || !outpu_file) {
         perror("Errore apertura file");
         return 0;
     }
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) return 0;
+
 
     if (EVP_EncryptInit_ex(ctx, cipher, NULL, key, iv) != 1) {
-        fprintf(stderr, "Errore inizializzazione cifratura.\n");
+        fprintf(stderr, "Errore inizializzazione cifratura.");
         EVP_CIPHER_CTX_free(ctx);
         return 0;
     }
@@ -30,25 +30,25 @@ int encrypt_file(const char *input_filename, const char *output_filename,
     unsigned char outbuf[4096 + EVP_MAX_BLOCK_LENGTH];
     int inlen, outlen;
 
-    while ((inlen = fread(inbuf, 1, sizeof(inbuf), in)) > 0) {
+    while ((inlen = fread(inbuf, 1, sizeof(inbuf), input_file)) > 0) {
         if (EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen) != 1) {
-            fprintf(stderr, "Errore cifratura.\n");
+            fprintf(stderr, "Errore cifratura.");
             EVP_CIPHER_CTX_free(ctx);
             return 0;
         }
-        fwrite(outbuf, 1, outlen, out);
+        fwrite(outbuf, 1, outlen, outpu_file);
     }
 
     if (EVP_EncryptFinal_ex(ctx, outbuf, &outlen) != 1) {
-        fprintf(stderr, "Errore finale cifratura.\n");
+        fprintf(stderr, "Errore finale cifratura.");
         EVP_CIPHER_CTX_free(ctx);
         return 0;
     }
-    fwrite(outbuf, 1, outlen, out);
+    fwrite(outbuf, 1, outlen, outpu_file);
 
     EVP_CIPHER_CTX_free(ctx);
-    fclose(in);
-    fclose(out);
+    fclose(input_file);
+    fclose(outpu_file);
     return 1;
 }
 
@@ -72,23 +72,23 @@ int decrypt_file(const char *input_filename, const char *output_filename,
 
     unsigned char inbuf[4096];
     unsigned char outbuf[4096 + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen;
+    int input_lenght, output_lent;
 
-    while ((inlen = fread(inbuf, 1, sizeof(inbuf), in)) > 0) {
-        if (EVP_DecryptUpdate(ctx, outbuf, &outlen, inbuf, inlen) != 1) {
-            fprintf(stderr, "Errore decifratura.\n");
+    while ((input_lenght = fread(inbuf, 1, sizeof(inbuf), in)) > 0) {
+        if (EVP_DecryptUpdate(ctx, outbuf, &output_lent, inbuf, input_lenght) != 1) {
+            fprintf(stderr, "Errore decifratura.");
             EVP_CIPHER_CTX_free(ctx);
             return 0;
         }
-        fwrite(outbuf, 1, outlen, out);
+        fwrite(outbuf, 1, output_lent, out);
     }
 
-    if (EVP_DecryptFinal_ex(ctx, outbuf, &outlen) != 1) {
+    if (EVP_DecryptFinal_ex(ctx, outbuf, &output_lent) != 1) {
         fprintf(stderr, "Errore finale decifratura.\n");
         EVP_CIPHER_CTX_free(ctx);
         return 0;
     }
-    fwrite(outbuf, 1, outlen, out);
+    fwrite(outbuf, 1, output_lent, out);
 
     EVP_CIPHER_CTX_free(ctx);
     fclose(in);
@@ -96,9 +96,6 @@ int decrypt_file(const char *input_filename, const char *output_filename,
 
     return 1;
 }
-
-
-
 
 
 void generate_random_file(const char *filename, size_t size) {
@@ -115,25 +112,22 @@ void generate_random_file(const char *filename, size_t size) {
         exit(1);
     }
 
-    // Check if the file should be text or binary
     const char *ext = strrchr(filename, '.');
     int is_text = (ext && strcmp(ext, ".txt") == 0);
 
     if (is_text) {
-        // Generate printable ASCII text (A–Z, a–z, 0–9, space)
-        const char charset[] =
+        const char set_chars[] =
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                 "abcdefghijklmnopqrstuvwxyz"
                 "0123456789 ";
-        size_t charset_size = sizeof(charset) - 1;
+        size_t charset_size = sizeof(set_chars) - 1;
 
         for (size_t i = 0; i < size; i++) {
-            buffer[i] = charset[rand() % charset_size];
+            buffer[i] = set_chars[rand() % charset_size];
         }
     } else {
-        // Generate binary random bytes
         if (RAND_bytes(buffer, size) != 1) {
-            fprintf(stderr, "Errore nella generazione casuale con OpenSSL.\n");
+            fprintf(stderr, "Errore nella generazione random bytes.");
             fclose(f);
             free(buffer);
             exit(1);
@@ -144,7 +138,7 @@ void generate_random_file(const char *filename, size_t size) {
     fclose(f);
     free(buffer);
 
-    printf("✅ File '%s' generato con %zu byte %s.\n",
+    printf("\n File '%s' generato con %zu byte %s.",
            filename, size, is_text ? "di testo casuale" : "casuali binari");
 }
 
@@ -157,13 +151,13 @@ int compute_sha256(const char *filename, unsigned char *digest, unsigned int *di
 
     EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
     if (!mdctx) {
-        fprintf(stderr, "Errore creazione contesto hash.\n");
+        fprintf(stderr, "Errore creazione contesto hash.");
         fclose(file);
         return 0;
     }
 
     if (EVP_DigestInit_ex(mdctx, EVP_sha256(), NULL) != 1) {
-        fprintf(stderr, "Errore inizializzazione SHA-256.\n");
+        fprintf(stderr, "Errore inizializzazione SHA-256.");
         EVP_MD_CTX_free(mdctx);
         fclose(file);
         return 0;
@@ -173,7 +167,7 @@ int compute_sha256(const char *filename, unsigned char *digest, unsigned int *di
     size_t bytes_read;
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         if (EVP_DigestUpdate(mdctx, buffer, bytes_read) != 1) {
-            fprintf(stderr, "Errore aggiornamento SHA-256.\n");
+            fprintf(stderr, "Errore aggiornamento SHA-256.");
             EVP_MD_CTX_free(mdctx);
             fclose(file);
             return 0;
@@ -181,7 +175,7 @@ int compute_sha256(const char *filename, unsigned char *digest, unsigned int *di
     }
 
     if (EVP_DigestFinal_ex(mdctx, digest, digest_len) != 1) {
-        fprintf(stderr, "Errore finale SHA-256.\n");
+        fprintf(stderr, "Errore finale SHA-256.");
         EVP_MD_CTX_free(mdctx);
         fclose(file);
         return 0;
@@ -192,20 +186,18 @@ int compute_sha256(const char *filename, unsigned char *digest, unsigned int *di
     return 1;
 }
 
-
 int main() {
-    // inizializza l'algoritmo di generazione casuale di OpenSSL
     OpenSSL_add_all_algorithms();
 
     unsigned char key[16]; // 128-bit key
     unsigned char iv[16];  // 128-bit IV (block size)
 
     if (RAND_bytes(key, sizeof(key)) != 1 || RAND_bytes(iv, sizeof(iv)) != 1) {
-        fprintf(stderr, "Errore nella generazione della chiave o IV.\n");
+        fprintf(stderr, "Error or IV generation error");
         return 1;
     }
 
-    printf("✅ Chiave e IV generati casualmente.\n");
+    printf("Keys and IV generated \n");
     for (int i = 0; i < 16; i++) printf("%02x", key[i]);
     printf("\n");
 
@@ -222,7 +214,7 @@ int main() {
         EVP_sm4_cbc()
     };
 
-    const char *names[] = {"AES-128-CBC", "Camellia-128-CBC", "SM4-CBC"};
+    const char *names[] = {"AES", "Camellia", "SM4"};
 
     const char *inputs[] = {"tiny.txt", "medium.txt", "large.bin"};
     const char *sizes[] = {"16B", "20KB", "3MB"};
@@ -233,40 +225,35 @@ int main() {
             sprintf(enc_file, "%s_%s.enc", names[a], inputs[f]);
             sprintf(dec_file, "%s_%s.dec", names[a], inputs[f]);
 
-            printf("\n🔹 Testing %s on %s...\n", names[a], sizes[f]);
+            printf("\n Testing %s on %s...", names[a], sizes[f]);
 
             start = clock();
             encrypt_file(inputs[f], enc_file, algorithms[a], key, iv);
             end = clock();
             cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-            printf("   Encryption time: %.6f seconds\n", cpu_time_used);
+            printf("\n Encryption time: %.6f seconds\n", cpu_time_used);
 
             start = clock();
             decrypt_file(enc_file, dec_file, algorithms[a], key, iv);
             end = clock();
             cpu_time_used = ((double)(end - start)) / CLOCKS_PER_SEC;
-            printf("   Decryption time: %.6f seconds\n", cpu_time_used);
+            printf("\n Decryption time: %.6f seconds\n", cpu_time_used);
 
-            // 🔽 Place hash verification here
             unsigned char hash_orig[EVP_MAX_MD_SIZE], hash_dec[EVP_MAX_MD_SIZE];
             unsigned int len_orig, len_dec;
 
             if (!compute_sha256(inputs[f], hash_orig, &len_orig) ||
                 !compute_sha256(dec_file, hash_dec, &len_dec)) {
-                fprintf(stderr, "Errore nel calcolo degli hash.\n");
+                fprintf(stderr, "\n Hash calc error \n");
                 continue;
                 }
 
             if (len_orig == len_dec && memcmp(hash_orig, hash_dec, len_orig) == 0)
-                printf("   ✅ Integrity OK (SHA-256 match)\n");
+                printf("Integrity OK \n\n");
             else
-                printf("   ❌ Integrity FAIL (files differ)\n");
+                printf("Integrity KO \n\n");
         }
     }
-
-
-
-
     EVP_cleanup();
     return 0;
 }
