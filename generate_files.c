@@ -11,22 +11,15 @@ int encrypt_file(const char *input_fn, const char *output_fn,
     FILE *input_file = fopen(input_fn, "rb");
     FILE *outpu_file = fopen(output_fn, "wb");
     EVP_CIPHER_CTX *context = EVP_CIPHER_CTX_new();
-    if (EVP_EncryptInit_ex(context, cipher, NULL, key, iv) != 1) {
-        fprintf(stderr, "Cipher init error");
-        EVP_CIPHER_CTX_free(context);
-        return 0;
-    }
+    EVP_EncryptInit_ex(context, cipher, NULL, key, iv);
 
 
     int input_length, output_length;
     unsigned char outbuf[4096 + EVP_MAX_BLOCK_LENGTH];
     unsigned char inbuf[4096];
     while ((input_length = fread(inbuf, 1, sizeof(inbuf), input_file)) > 0) {
-        if (EVP_EncryptUpdate(context, outbuf, &output_length, inbuf, input_length) != 1) {
-            fprintf(stderr, "Ecipher error");
-            EVP_CIPHER_CTX_free(context);
-            return 0;
-        }
+
+        EVP_EncryptUpdate(context, outbuf, &output_length, inbuf, input_length);
         fwrite(outbuf, 1, output_length, outpu_file);
     }
 
@@ -47,38 +40,24 @@ int decrypt_file(const char *input_fn, const char *output_fn,
                  const EVP_CIPHER *cipher, unsigned char *key, unsigned char *iv) {
     FILE *input_st = fopen(input_fn, "rb");
     FILE *otput_st = fopen(output_fn, "wb");
-    if (!input_st || !otput_st) {
-        perror("Open error");
-        return 0;
-    }
+
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-    if (!ctx) return 0;
 
-    if (EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv) != 1) {
-        fprintf(stderr, "Dec error\n");
-        EVP_CIPHER_CTX_free(ctx);
-        return 0;
-    }
+
+    EVP_DecryptInit_ex(ctx, cipher, NULL, key, iv);
 
     unsigned char inbuf[4096];
     unsigned char outbuf[4096 + EVP_MAX_BLOCK_LENGTH];
     int input_lenght, output_lent;
 
     while ((input_lenght = fread(inbuf, 1, sizeof(inbuf), input_st)) > 0) {
-        if (EVP_DecryptUpdate(ctx, outbuf, &output_lent, inbuf, input_lenght) != 1) {
-            fprintf(stderr, "Errore decifratura.");
-            EVP_CIPHER_CTX_free(ctx);
-            return 0;
-        }
+       EVP_DecryptUpdate(ctx, outbuf, &output_lent, inbuf, input_lenght);
         fwrite(outbuf, 1, output_lent, otput_st);
     }
 
-    if (EVP_DecryptFinal_ex(ctx, outbuf, &output_lent) != 1) {
-        fprintf(stderr, "Errore finale decifratura.\n");
-        EVP_CIPHER_CTX_free(ctx);
-        return 0;
-    }
+    EVP_DecryptFinal_ex(ctx, outbuf, &output_lent);
+
     fwrite(outbuf, 1, output_lent, otput_st);
 
     EVP_CIPHER_CTX_free(ctx);
@@ -91,22 +70,11 @@ int decrypt_file(const char *input_fn, const char *output_fn,
 
 void generate_random_file(const char *filename, size_t size) {
     FILE *f = fopen(filename, "wb");
-    if (!f) {
-        perror("Errore nella creazione del file");
-        exit(1);
-    }
 
     unsigned char *buffer = malloc(size);
-    if (!buffer) {
-        perror("Allocazione memoria fallita");
-        fclose(f);
-        exit(1);
-    }
-
     const char *ext = strrchr(filename, '.');
     int is_text = (ext && strcmp(ext, ".txt") == 0);
 
-    if (is_text) {
         const char set_chars[] =
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                 "abcdefghijklmnopqrstuvwxyz"
@@ -116,14 +84,7 @@ void generate_random_file(const char *filename, size_t size) {
         for (size_t i = 0; i < size; i++) {
             buffer[i] = set_chars[rand() % charset_size];
         }
-    } else {
-        if (RAND_bytes(buffer, size) != 1) {
-            fprintf(stderr, "Random bytes error generation");
-            fclose(f);
-            free(buffer);
-            exit(1);
-        }
-    }
+
 
     fwrite(buffer, 1, size, f);
     fclose(f);
@@ -135,42 +96,19 @@ void generate_random_file(const char *filename, size_t size) {
 
 int compute_sha256(const char *file_nm, unsigned char *digest, unsigned int *digest_lengt) {
     FILE *file = fopen(file_nm, "rb");
-    if (!file) {
-        perror("Error calculating hash");
-        return 0;
-    }
+
 
     EVP_MD_CTX *md_ctxt = EVP_MD_CTX_new();
-    if (!md_ctxt) {
-        fprintf(stderr, "error creating hash.");
-        fclose(file);
-        return 0;
-    }
 
-    if (EVP_DigestInit_ex(md_ctxt, EVP_sha256(), NULL) != 1) {
-        fprintf(stderr, "Errore inizializzazione SHA-256.");
-        EVP_MD_CTX_free(md_ctxt);
-        fclose(file);
-        return 0;
-    }
+    EVP_DigestInit_ex(md_ctxt, EVP_sha256(), NULL) ;
 
     unsigned char buffer[4096];
     size_t bytes_read;
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        if (EVP_DigestUpdate(md_ctxt, buffer, bytes_read) != 1) {
-            fprintf(stderr, "Errore aggiornamento SHA-256.");
-            EVP_MD_CTX_free(md_ctxt);
-            fclose(file);
-            return 0;
-        }
+        EVP_DigestUpdate(md_ctxt, buffer, bytes_read);
     }
 
-    if (EVP_DigestFinal_ex(md_ctxt, digest, digest_lengt) != 1) {
-        fprintf(stderr, "Errore finale SHA-256.");
-        EVP_MD_CTX_free(md_ctxt);
-        fclose(file);
-        return 0;
-    }
+    EVP_DigestFinal_ex(md_ctxt, digest, digest_lengt);
 
     EVP_MD_CTX_free(md_ctxt);
     fclose(file);
@@ -206,7 +144,6 @@ int main() {
     };
 
     const char *names[] = {"AES", "Camellia", "SM4"};
-
     const char *inputs[] = {"tiny.txt", "medium.txt", "large.bin"};
     const char *sizes[] = {"16B", "20KB", "3MB"};
 
@@ -233,16 +170,11 @@ int main() {
             unsigned char hash_orig[EVP_MAX_MD_SIZE], hash_dec[EVP_MAX_MD_SIZE];
             unsigned int len_orig, len_dec;
 
-            if (!compute_sha256(inputs[f], hash_orig, &len_orig) ||
-                !compute_sha256(dec_file, hash_dec, &len_dec)) {
-                fprintf(stderr, "\n Hash calc error \n");
-                continue;
-                }
 
             if (len_orig == len_dec && memcmp(hash_orig, hash_dec, len_orig) == 0)
-                printf("Integrity OK \n\n");
+                printf(" Integrity OK \n\n");
             else
-                printf("Integrity KO \n\n");
+                printf(" Integrity KO \n\n");
         }
     }
     EVP_cleanup();
