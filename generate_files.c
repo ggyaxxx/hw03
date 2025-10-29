@@ -148,7 +148,7 @@ int main() {
     RAND_bytes(gcm_iv, sizeof(gcm_iv));
     RAND_bytes(mac_key, sizeof(mac_key));
 
-    size_t FILE_SIZE = 512 * 1024 * 1024; // 512 MB
+    size_t FILE_SIZE = 5120 * 1024 * 1024;
     generate_random_file("testfile.bin", FILE_SIZE);
     const char *input = "testfile.bin";
 
