@@ -5,6 +5,7 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
+#include <unistd.h>
 
 #define BLOCK_SIZE 4096
 
@@ -130,6 +131,10 @@ int enc_aes128gcm(const char *input_fn, const char *output_fn,
 int main() {
     OpenSSL_add_all_algorithms();
 
+    char cwd[512];
+    getcwd(cwd, sizeof(cwd));
+    printf("Current working directory: %s\n", cwd);
+
     unsigned char aes_key[16], aes_iv[16];
     unsigned char chacha_key[32], chacha_nonce[12];
     unsigned char gcm_key[16], gcm_iv[12];
@@ -143,7 +148,7 @@ int main() {
     RAND_bytes(gcm_iv, sizeof(gcm_iv));
     RAND_bytes(mac_key, sizeof(mac_key));
 
-    size_t FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+    size_t FILE_SIZE = 512 * 1024 * 1024; // 512 MB
     generate_random_file("testfile.bin", FILE_SIZE);
     const char *input = "testfile.bin";
 
