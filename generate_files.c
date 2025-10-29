@@ -91,42 +91,82 @@ int enc_then_mac_chacha20(const char *input_fn, const char *output_fn,
     return 1;
 }
 
+// ---------- AES-128-GCM (AEAD) ----------
+int enc_aes128gcm(const char *input_fn, const char *output_fn,
+                  unsigned char *key, unsigned char *iv) {
+    FILE *fin = fopen(input_fn, "rb");
+    FILE *fout = fopen(output_fn, "wb");
+    if (!fin || !fout) return 0;
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL);
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, NULL);
+    EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv);
+
+    fwrite(iv, 1, 12, fout);
+
+    unsigned char inbuf[BLOCK_SIZE];
+    unsigned char outbuf[BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
+    int inlen, outlen;
+
+    while ((inlen = fread(inbuf, 1, BLOCK_SIZE, fin)) > 0) {
+        EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen);
+        fwrite(outbuf, 1, outlen, fout);
+    }
+
+    EVP_EncryptFinal_ex(ctx, outbuf, &outlen);
+    fwrite(outbuf, 1, outlen, fout);
+
+    unsigned char tag[16];
+    EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag);
+    fwrite(tag, 1, 16, fout);
+
+    fclose(fin); fclose(fout);
+    EVP_CIPHER_CTX_free(ctx);
+    return 1;
+}
+
 // ---------- MAIN ----------
 int main() {
     OpenSSL_add_all_algorithms();
 
     unsigned char aes_key[16], aes_iv[16];
     unsigned char chacha_key[32], chacha_nonce[12];
+    unsigned char gcm_key[16], gcm_iv[12];
     unsigned char mac_key[32];
 
     RAND_bytes(aes_key, sizeof(aes_key));
     RAND_bytes(aes_iv, sizeof(aes_iv));
     RAND_bytes(chacha_key, sizeof(chacha_key));
     RAND_bytes(chacha_nonce, sizeof(chacha_nonce));
+    RAND_bytes(gcm_key, sizeof(gcm_key));
+    RAND_bytes(gcm_iv, sizeof(gcm_iv));
     RAND_bytes(mac_key, sizeof(mac_key));
 
-    // genera i file di test
-    generate_random_file("tiny.bin", 16);
-    generate_random_file("medium.bin", 200000);  // 200 KB
-    generate_random_file("large.bin", 3 * 1024 * 1024); // 3 MB
+    size_t FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+    generate_random_file("testfile.bin", FILE_SIZE);
+    const char *input = "testfile.bin";
 
     const char *inputs[] = {"tiny.bin", "medium.bin", "large.bin"};
 
     printf("=== AES-128-CTR + HMAC ===\n");
-    for (int i = 0; i < 3; i++) {
-        clock_t start = clock();
-        enc_then_mac_aes128ctr(inputs[i], "aesctr_hmac.enc", aes_key, aes_iv, mac_key);
-        clock_t end = clock();
-        printf("%s -> %.6f s\n", inputs[i], (double)(end - start) / CLOCKS_PER_SEC);
-    }
+    clock_t start = clock();
+    enc_then_mac_aes128ctr(input, "aesctr_hmac.enc", aes_key, aes_iv, mac_key);
+    clock_t end = clock();
+    printf("Time: %.6f s\n", (double)(end - start) / CLOCKS_PER_SEC);
 
     printf("\n=== ChaCha20 + HMAC ===\n");
-    for (int i = 0; i < 3; i++) {
-        clock_t start = clock();
-        enc_then_mac_chacha20(inputs[i], "chacha_hmac.enc", chacha_key, chacha_nonce, mac_key);
-        clock_t end = clock();
-        printf("%s -> %.6f s\n", inputs[i], (double)(end - start) / CLOCKS_PER_SEC);
-    }
+    start = clock();
+    enc_then_mac_chacha20(input, "chacha_hmac.enc", chacha_key, chacha_nonce, mac_key);
+    end = clock();
+    printf("Time: %.6f s\n", (double)(end - start) / CLOCKS_PER_SEC);
+
+    printf("\n=== AES-128-GCM (AEAD) ===\n");
+    start = clock();
+    enc_aes128gcm(input, "aesgcm.enc", gcm_key, gcm_iv);
+    end = clock();
+    printf("Time: %.6f s\n", (double)(end - start) / CLOCKS_PER_SEC);
+
 
     EVP_cleanup();
     return 0;
